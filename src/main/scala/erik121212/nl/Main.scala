@@ -40,6 +40,67 @@ object Main  { //extends App {
 //        </RegressionModel>
 //      </PMML>
 
+    val example2 =
+      <PMML version="4.2" xmlns="http://www.dmg.org/PMML-4_2">
+        <Header copyright="m06b181">
+          <Application name="KNIME" version="3.1.2"/>
+        </Header>
+        <DataDictionary numberOfFields="8">
+          <DataField name="score" optype="continuous" dataType="integer">
+            <Interval closure="closedClosed" leftMargin="200.0" rightMargin="999.0"/>
+          </DataField>
+          <DataField name="PartyiDealTrxAmountLast4Hours" optype="continuous" dataType="double">
+            <Interval closure="closedClosed" leftMargin="20.0" rightMargin="10000.0"/>
+          </DataField>
+          <DataField name="IPadressFirstUsedDaysAgo" optype="continuous" dataType="double">
+            <Interval closure="closedClosed" leftMargin="0.1" rightMargin="15.0"/>
+          </DataField>
+          <DataField name="PartyId.Deviceid.FirstTrxDaysAgo" optype="continuous" dataType="double">
+            <Interval closure="closedClosed" leftMargin="0.1" rightMargin="6.0"/>
+          </DataField>
+          <DataField name="RecentViewsTanMethod" optype="continuous" dataType="integer">
+            <Interval closure="closedClosed" leftMargin="1.0" rightMargin="6.0"/>
+          </DataField>
+          <DataField name="iDealAfwijking" optype="continuous" dataType="double">
+            <Interval closure="closedClosed" leftMargin="0.1" rightMargin="0.8"/>
+          </DataField>
+          <DataField name="AvgTimeOfIdealSessionLast2DaysTrust4" optype="continuous" dataType="integer">
+            <Interval closure="closedClosed" leftMargin="10.0" rightMargin="400.0"/>
+          </DataField>
+          <DataField name="prediction" optype="continuous" dataType="boolean">
+            <Value value="true"/>
+            <Value value="false"/>
+          </DataField>
+        </DataDictionary>
+        <RuleSetModel modelName="RuleSet" functionName="classification">
+          <MiningSchema>
+            <MiningField name="score" invalidValueTreatment="asIs"/>
+            <MiningField name="PartyiDealTrxAmountLast4Hours" invalidValueTreatment="asIs"/>
+            <MiningField name="IPadressFirstUsedDaysAgo" invalidValueTreatment="asIs"/>
+            <MiningField name="PartyId.Deviceid.FirstTrxDaysAgo" invalidValueTreatment="asIs"/>
+            <MiningField name="iDealAfwijking" invalidValueTreatment="asIs"/>
+            <MiningField name="AvgTimeOfIdealSessionLast2DaysTrust4" invalidValueTreatment="asIs"/>
+            <MiningField name="prediction" invalidValueTreatment="asIs" usageType="target"/>
+          </MiningSchema>
+          <RuleSet defaultConfidence="0.0">
+            <RuleSelectionMethod criterion="firstHit"/>
+            <SimpleRule score="true" weight="1.0">
+              <CompoundPredicate booleanOperator="and">
+                <SimplePredicate field="score" operator="greaterThan" value="799"/>
+                <SimplePredicate field="PartyiDealTrxAmountLast4Hours" operator="greaterThan" value="189"/>
+                <SimplePredicate field="IPadressFirstUsedDaysAgo" operator="lessThan" value="1"/>
+                <SimplePredicate field="PartyId.Deviceid.FirstTrxDaysAgo" operator="lessThan" value="1"/>
+                <SimplePredicate field="iDealAfwijking" operator="greaterThan" value="0.5"/>
+                <SimplePredicate field="AvgTimeOfIdealSessionLast2DaysTrust4" operator="greaterThan" value="78"/>
+              </CompoundPredicate>
+            </SimpleRule>
+            <SimpleRule score="false" weight="1.0">
+              <True/>
+            </SimpleRule>
+          </RuleSet>
+        </RuleSetModel>
+      </PMML>
+
     val example =
         <PMML xmlns="http://www.dmg.org/PMML-4_2" version="4.2">
           <Header copyright="Copyright (c) 2013, DMG.org"/>
@@ -241,18 +302,41 @@ object Main  { //extends App {
         </PMML>
 
 
+    // Version 1
     val is = new ByteArrayInputStream(example.toString.getBytes)
     val source = ImportFilter.apply(new InputSource(is))
     val model: PMML = JAXBUtil.unmarshalPMML(source)
 
-    val evaluator = ModelEvaluatorFactory.newInstance()
+    // Version 2
+    val is2 = new ByteArrayInputStream(example2.toString.getBytes)
+    val source2 = ImportFilter.apply(new InputSource(is2))
+    val model2: PMML = JAXBUtil.unmarshalPMML(source2)
+
+    val evaluator: Evaluator = ModelEvaluatorFactory.newInstance()
       .newModelManager(model).asInstanceOf[Evaluator]
 
     evaluator.verify()
 
+    // Version 2
+    val evaluator2: Evaluator = ModelEvaluatorFactory.newInstance()
+      .newModelManager(model2).asInstanceOf[Evaluator]
+
+    evaluator2.verify()
+
+
+    val args2 = new util.LinkedHashMap[FieldName, FieldValue]()
+    val fields2 = evaluator2.getActiveFields()
+
+    val result2 = evaluator.evaluate(args2)
+    // End Version 2
+
 
     val x: util.List[FieldName] = evaluator.getActiveFields
     val a: Array[AnyRef] = x.toArray
+
+    // Version 2
+    val x2: util.List[FieldName] = evaluator2.getActiveFields
+    val a2: Array[AnyRef] = x2.toArray
 
 
     import scala.collection.JavaConversions._
@@ -260,6 +344,8 @@ object Main  { //extends App {
       val x: DataField = evaluator.getDataField(a)
       x.toString
     }
+
+
 
     val reqFields = for {
       field <- evaluator.getActiveFields
@@ -282,6 +368,26 @@ object Main  { //extends App {
    val args = new util.LinkedHashMap[FieldName, FieldValue]()
    val fields = evaluator.getActiveFields()
 
+
+    val score = new FieldName("score")
+    val PartyiDealTrxAmountLast4Hours = new FieldName("PartyiDealTrxAmountLast4Hours")
+    val IPadressFirstUsedDaysAgo = new FieldName("IPadressFirstUsedDaysAgo")
+    val PartyIdDeviceidFirstTrxDaysAgo = new FieldName("PartyId.Deviceid.FirstTrxDaysAgo")
+    val iDealAfwijking = new FieldName("iDealAfwijking")
+    val AvgTimeOfIdealSessionLast2DaysTrust4 = new FieldName("AvgTimeOfIdealSessionLast2DaysTrust4")
+
+    args2.put(score, evaluator2.prepare(score, "300"))
+    args2.put(PartyiDealTrxAmountLast4Hours, evaluator2.prepare(PartyiDealTrxAmountLast4Hours, 10000))
+    args2.put(IPadressFirstUsedDaysAgo, evaluator2.prepare(IPadressFirstUsedDaysAgo, "0.1"))
+    args2.put(PartyIdDeviceidFirstTrxDaysAgo, evaluator2.prepare(PartyIdDeviceidFirstTrxDaysAgo, "0.1"))
+    args2.put(iDealAfwijking, evaluator2.prepare(iDealAfwijking, "0.8"))
+    args2.put(AvgTimeOfIdealSessionLast2DaysTrust4, evaluator2.prepare(AvgTimeOfIdealSessionLast2DaysTrust4, "400"))
+
+
+    val result3 = evaluator2.evaluate(args2)
+    println("Result3: " + result3)
+    println("")
+
 //    for(FieldName activeField : activeFields){
 //      DataField dataField = evaluator.getDataField(activeField);
 
@@ -294,6 +400,7 @@ object Main  { //extends App {
     val no_of_claims = new FieldName("no of claims")
     val domicile = new FieldName("domicile")
     val age_of_car = new FieldName("age of car")
+
 
 
     val start = System.currentTimeMillis()
